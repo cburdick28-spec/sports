@@ -128,3 +128,37 @@ ul { list-style: none; margin: 0; padding: 0; }
 .games li.loss { border-left-color: var(--bad); }
 .win-text { color: var(--good); }
 .loss-text { color: var(--bad); }
+
+/* Candidate chips under the draft wheel */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 420px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px;
+}
+.chip.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+/* Win chance meter */
+.meter-wrap { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.meter { height: 10px; background: #0b1020; border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
+.meter-fill { height: 100%; border-radius: 999px; transition: width 0.5s ease-out; }
+
+/* Legendary pull */
+.reveal.legend { animation: pop 0.25s ease-out, glow 1.6s ease-in-out infinite alternate; }
+@keyframes glow {
+  from { box-shadow: 0 0 6px rgba(251, 191, 36, 0.35); }
+  to { box-shadow: 0 0 28px rgba(251, 191, 36, 0.85); }
+}
+
+/* Title confetti */
+.confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 10; }
+.confetti i {
+  position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; opacity: 0.9;
+  animation: fall 3.2s linear infinite;
+}
+@keyframes fall {
+  to { transform: translateY(110vh) rotate(540deg); opacity: 0.6; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti i, .reveal, .reveal.legend { animation: none; }
+}

@@ -167,3 +167,28 @@ export function playRound(
     oppRating,
   };
 }
+
+/** Monte Carlo estimate (0..1) of winning a round, using the real game/series logic. */
+export function estimateWinChance(
+  cfg: SportConfig,
+  team: TeamState,
+  roundIdx: number,
+  rng: Rng,
+  trials = 600,
+): number {
+  const you = teamRating(cfg, team);
+  const opp = cfg.rounds[roundIdx].strength + team.nextOppBoost;
+  const need = Math.ceil(cfg.bestOf / 2);
+  let wins = 0;
+  for (let t = 0; t < trials; t++) {
+    let w = 0;
+    let l = 0;
+    while (w < need && l < need) {
+      const g = playGame(cfg, you, opp, rng);
+      if (g.you > g.opp) w++;
+      else l++;
+    }
+    if (w > l) wins++;
+  }
+  return wins / trials;
+}

@@ -11,13 +11,15 @@ All players are procedurally generated and fictional, so there is no licensing t
 | ⚽ Football | 7 players | 5 knockout rounds, single match, penalties on a draw |
 | 🏀 Basketball | 5 players | 5 playoff rounds, best of 3 |
 | 🏒 Hockey | 6 players | 5 playoff rounds, best of 3 |
+| 🌀 Crossover | 6 players | One squad built from all three sports, 5 rounds, best of 3 |
 
 ## How a run works
 
 1. **Draft.** For each lineup slot a wheel of 8 candidates spins. You can sign the result or use your one reroll per run.
 2. **Event wheel.** Before every round a weighted wheel decides what happens: hot streak, injury, trade, scouting win, new tactics, a rival scouting you, a quiet week, or a sport-specific wildcard.
-3. **Match.** Team rating (position-weighted average plus boosts) goes up against the round's opponent. Scores are sampled per sport: Poisson goals for football and hockey, normally distributed points for basketball.
-4. **Title or elimination.** Your best players land in a local Hall of Fame (browser `localStorage`).
+3. **Preview.** Every round has a named opponent, and once the event resolves you see a win-chance meter estimated from 600 simulated rounds.
+4. **Match.** Team rating (position-weighted average plus boosts) goes up against the round's opponent. Scores are sampled per sport: Poisson goals for football and hockey, normally distributed points for basketball.
+5. **Title or elimination.** Share your result as emoji, and your best players land in a local Hall of Fame (browser `localStorage`).
 
 ## Run it
 
@@ -43,7 +45,6 @@ Import the repo on [Vercel](https://vercel.com/new). It is a stock Next.js app, 
 
 ## Ideas
 
-- Mixed mode where the wheel hands you players from different sports
 - Real-world player packs (needs a data source and a look at licensing)
 - Shareable run results
 - More sports: baseball, rugby, volleyball

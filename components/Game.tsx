@@ -7,11 +7,13 @@ import {
   RARITY,
   applyEvent,
   emptyTeam,
+  estimateWinChance,
   eventsFor,
   playRound,
   rollCandidates,
   teamRating,
 } from "@/lib/engine";
+import { opponentNames } from "@/lib/opponents";
 import { defaultRng } from "@/lib/rng";
 import { Save, loadSave, recordRun, resetSave } from "@/lib/storage";
 import { EventDef, Player, RoundOutcome, SportConfig, TeamState } from "@/lib/types";
@@ -38,6 +40,8 @@ export default function Game() {
   const [last, setLast] = useState<{ outcome: RoundOutcome; you: number; opp: number } | null>(null);
   const [history, setHistory] = useState<RoundOutcome[]>([]);
   const [save, setSave] = useState<Save | null>(null);
+  const [opponents, setOpponents] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setSave(loadSave());
@@ -45,7 +49,15 @@ export default function Game() {
 
   const events = useMemo(() => (cfg ? eventsFor(cfg) : []), [cfg]);
 
+  // Win chance is only shown once the event is resolved, so it reflects the final ratings.
+  const winChance = useMemo(
+    () => (phase === "event" && cfg && eventMsg ? estimateWinChance(cfg, team, roundIdx, defaultRng) : null),
+    [phase, cfg, eventMsg, team, roundIdx],
+  );
+
   function startRun(sport: SportConfig) {
+    setOpponents(opponentNames(defaultRng, sport.rounds.length));
+    setCopied(false);
     setCfg(sport);
     setTeam(emptyTeam());
     setSlotIdx(0);
@@ -198,7 +210,8 @@ export default function Game() {
           const p = team.lineup[s.key];
           return (
             <li key={s.key} className={p ? "" : "empty"}>
-              <span className="pos">{s.key}</span>
+              {/* Crossover slots carry the sport emoji as the first character of the label. */}
+              <span className="pos">{cfg.id === "mixed" ? Array.from(s.label)[0] : s.key}</span>
               {p ? (
                 <>
                   <span className="dot" style={{ background: RARITY[p.rarity].color }} />
@@ -236,8 +249,19 @@ export default function Game() {
           </p>
           <h2>Draft your {slot.label}</h2>
           <Wheel key={`draft-${nonce}`} slices={slices} onResult={(i) => setPicked(candidates[i])} />
+          <ul className="chips" aria-label="Players on the wheel">
+            {candidates.map((p) => (
+              <li key={p.id} className={picked?.id === p.id ? "chip on" : "chip"}>
+                <span className="dot" style={{ background: RARITY[p.rarity].color }} />
+                {lastName(p.name)} <strong>{p.rating}</strong>
+              </li>
+            ))}
+          </ul>
           {picked && (
-            <div className="reveal" style={{ borderColor: RARITY[picked.rarity].color }}>
+            <div
+              className={`reveal ${picked.rarity === "legendary" ? "legend" : ""}`}
+              style={{ borderColor: RARITY[picked.rarity].color }}
+            >
               <span className="tag" style={{ background: RARITY[picked.rarity].color }}>
                 {picked.rarity}
               </span>
@@ -273,9 +297,11 @@ export default function Game() {
           <p className="muted small">
             Round {roundIdx + 1} of {cfg.rounds.length}
           </p>
-          <h2>Before the {round.name}</h2>
+          <h2>
+            {round.name}: vs {opponents[roundIdx]}
+          </h2>
           <p className="muted">
-            Opponent rating {round.strength} · you {rating.toFixed(1)}
+            Opponent rating {round.strength + team.nextOppBoost} · you {rating.toFixed(1)}
           </p>
           <Wheel key={`event-${nonce}`} slices={slices} onResult={onEvent} buttonLabel="SPIN FOR EVENT" />
           {eventMsg && (
@@ -284,6 +310,23 @@ export default function Game() {
                 {eventMsg.ev.emoji} {eventMsg.ev.label}
               </h3>
               <p>{eventMsg.message}</p>
+              {winChance !== null && (
+                <div className="meter-wrap" title="Estimated from 600 simulated rounds">
+                  <div className="row between small">
+                    <span className="muted">Win chance</span>
+                    <strong>{Math.round(winChance * 100)}%</strong>
+                  </div>
+                  <div className="meter">
+                    <div
+                      className="meter-fill"
+                      style={{
+                        width: `${Math.round(winChance * 100)}%`,
+                        background: winChance >= 0.6 ? "var(--good)" : winChance >= 0.4 ? "var(--accent)" : "var(--bad)",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
               <button className="btn primary" onClick={play}>
                 Play the {round.name}
               </button>
@@ -302,9 +345,11 @@ export default function Game() {
     return (
       <div className="layout">
         <section className="card center stack">
-          <h2>{o.round}</h2>
+          <h2>
+            {o.round}: vs {opponents[roundIdx]}
+          </h2>
           <p className="muted">
-            You {last.you.toFixed(1)} vs opponent {last.opp.toFixed(1)}
+            You {last.you.toFixed(1)} vs {last.opp.toFixed(1)}
           </p>
           <ul className="games">
             {o.games.map((g, i) => (
@@ -335,8 +380,41 @@ export default function Game() {
   // ---------- Over ----------
   const cleared = history.filter((h) => h.won).length;
   const champion = cleared === cfg.rounds.length;
+
+  async function share() {
+    if (!cfg) return;
+    const bar = cfg.rounds.map((_, i) => (history[i] ? (history[i].won ? "🟩" : "🟥") : "⬛")).join("");
+    const lines = [
+      `${cfg.emoji} Sports Roulette (${cfg.name}) ${champion ? "🏆 CHAMPIONS" : `${cleared}/${cfg.rounds.length}`}`,
+      bar,
+      `Squad rating ${teamRating(cfg, team, false).toFixed(1)}`,
+    ];
+    const text = lines.join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      window.prompt("Copy your result:", text);
+    }
+  }
+
   return (
     <div className="layout">
+      {champion && (
+        <div className="confetti" aria-hidden="true">
+          {Array.from({ length: 36 }, (_, i) => (
+            <i
+              key={i}
+              style={{
+                left: `${(i * 37) % 100}%`,
+                animationDelay: `${(i % 9) * 0.15}s`,
+                background: ["#fbbf24", "#22c55e", "#38bdf8", "#f43f5e", "#c084fc"][i % 5],
+              }}
+            />
+          ))}
+        </div>
+      )}
       <section className="card center stack">
         <h2>{champion ? "🏆 Title won!" : "Run over"}</h2>
         <p className="lede">
@@ -353,6 +431,9 @@ export default function Game() {
         <div className="row gap center-row">
           <button className="btn primary" onClick={() => startRun(cfg)}>
             Run it back
+          </button>
+          <button className="btn" onClick={share}>
+            {copied ? "Copied!" : "Share result"}
           </button>
           <button className="btn" onClick={backToMenu}>
             Change sport
